@@ -8,7 +8,9 @@ CFLAGS  = -Wall
 # the build target executable:
 TARGET = sinais.sinalizador	\
 	sinais.recebe_sinais	\
-	pipe.primos 
+	pipe.primos 	\
+	produtor_socket	\
+	consumidor_socket
 
 all: $(TARGET) 
 
