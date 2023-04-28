@@ -54,7 +54,7 @@ main()
     while(numero_recebido != 0){
         
         bool eh_primo = true; 
-        recv(sock, numero, TAMANHO_MAX, 0);
+        recv(prod_sock, numero, TAMANHO_MAX, 0);
 
         numero_recebido = atoi(numero);
         for (unsigned possivel_divisor = 2; possivel_divisor < numero_recebido/2; possivel_divisor++)
@@ -74,6 +74,6 @@ main()
         send(prod_sock, resultado, strlen(resultado), 0);
     }
 
-
+    close(sock);
     return EXIT_SUCCESS;
 }

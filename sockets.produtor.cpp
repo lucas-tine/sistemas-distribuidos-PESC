@@ -43,17 +43,17 @@ main(int argc, char *argv[])
 
     for (int i = NUMEROS_A_GERAR; i > 0; i--){
         snprintf(numero, TAMANHO_MAX, "%i", numero_produzido);
-        send(sock, &numero, TAMANHO_MAX, 0);
+        send(sock, numero, TAMANHO_MAX, 0);
         cout << "número " << numero << " enviado" << endl;
         numero_produzido += incremento_aleatorio(rng); // Adiciona um número aleatório
 
         // Recebe o resultado do consumidor
         recv(sock, resultado, TAMANHO_MAX, 0);
         cout << "Resposta do consumidor:" << resultado << endl;
+        sleep(1);
     }
     
-    numero_produzido = 0; // sinal de termino
-    send(sock, &numero_produzido, sizeof(unsigned), 0); // sinalizando termino dos envio
+    send(sock, "0", sizeof(unsigned), 0); // sinalizando termino dos envio
     cout << "Resposta do consumidor:" << resultado << endl;
     close(sock);
 
