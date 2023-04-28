@@ -12,9 +12,10 @@ int erro(const char* aviso = UTILIZACAO)
     return 1;
 }
 
-static void perda_de_controle(int signum)
+static void sinal_encerramento(int signum)
 {
-    cout << "[SIGHUP: perda de controle do processo] recebido" << endl; 
+    cout << "sinal para encerrar recebido (" << signum << ")" << endl;
+    exit(EXIT_SUCCESS);
 }
 
 static void sinal_customizado(int signum)
@@ -27,12 +28,12 @@ main(int argc, char** argv)
 {
     if (argc != 1) return erro();
 
-    cout << "processo rodando como " << getpid() << endl;
-    signal(1, perda_de_controle);
-
     signal(34, sinal_customizado);
     signal(35, sinal_customizado);
     signal(36, sinal_customizado);
+    signal(37, sinal_encerramento);
+    cout << "processo rodando como " << getpid() << endl;
+    
     while(true)
         pause();
 }
