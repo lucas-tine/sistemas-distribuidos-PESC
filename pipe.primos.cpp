@@ -4,11 +4,12 @@
 #include <ctime>
 
 using namespace std;
-const unsigned numeros_a_gerar = 10000;
+unsigned numeros_a_gerar;
+
 static void consumidor(int* pipe)
 {
     close(pipe[1]); // fechando a escrita
-    unsigned contador_de_primos = 0;
+    unsigned contador_de_primos = -1;
     const int descritor_pipe = pipe[0];
     unsigned numero_recebido = -1; // valor inicial a ser sobrescrito
 
@@ -28,6 +29,7 @@ static void consumidor(int* pipe)
         if (numero_recebido == 0) 
         {   
             cout << "um total de " << contador_de_primos << " primos gerados!" << endl;
+            return;
         }
         cout << numero_recebido << ((eh_primo) ? " eh PRIMO !\n" : " nao ... \n");
     }   
@@ -53,10 +55,19 @@ static void produtor(int* pipe)
     write(descritor_pipe, &numero_produzido, sizeof(unsigned)); // sinalizando termino dos envio
 }
 
+int erro(const char* aviso = "uso: ./pipe.primos <numeros-a-gerar>")
+{
+    cout << aviso << endl;
+    return 1;
+}
+
 int
-main()
+main(int argc, char** argv)
 {
     int descritores_pipe [2];
+
+    if (argc != 2) return erro();
+    numeros_a_gerar = atoi(argv[1]);
     
     if (pipe(descritores_pipe) == -1) { // criação do pipe
         cout << "Error creating pipe" << endl;
