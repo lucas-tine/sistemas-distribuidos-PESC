@@ -9,8 +9,8 @@ CFLAGS  = -Wall
 TARGET = sinais.sinalizador	\
 	sinais.recebe_sinais	\
 	pipe.primos 	\
-	produtor_socket	\
-	consumidor_socket
+	sockets.consumidor	\
+	sockets.produtor
 
 all: $(TARGET) 
 
