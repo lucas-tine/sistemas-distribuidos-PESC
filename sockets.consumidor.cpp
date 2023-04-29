@@ -10,16 +10,27 @@
 #define TAMANHO_MAX 20
 
 using namespace std;
+const char* UTILIZACAO = "uso: ./sockets.consumidor <PORTA>";
+
+int erro(const char* aviso = UTILIZACAO)
+{
+    cout << aviso << endl;
+    return 1;
+}
 
 int
-main()
+main(int argc, char *argv[])
 {
+    if (argc != 2){
+        return erro();
+    }
+
     int sock, prod_sock;
 
     struct sockaddr_in address;
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_port = htons(atoi(argv[1]));
     int address_len = sizeof(address);
     
     char numero[TAMANHO_MAX];
@@ -42,6 +53,8 @@ main()
         cout << "Error connecting" << endl;
         return EXIT_FAILURE;
     }
+
+    cout << "Socket escutando na porta " << argv[1] << endl;
 
     // Aceita a conexão com o produtor
     if ((prod_sock = accept(sock, (struct sockaddr*)&address, (socklen_t*)&address_len)) < 0) {
