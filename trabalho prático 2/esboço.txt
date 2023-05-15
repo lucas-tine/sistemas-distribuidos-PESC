@@ -1,0 +1,10 @@
+- memória compartilhada: vetor de N posições
+    * acesso serializado utilizando semáforos
+    * estando cheia ou vazia, a thread impedida de utilizar aguarda bloqueada
+
+- número de threads produtoras e consumidoras é parâmetro: Np e Nc
+
+- produtor: gerar int aleatórios entre 1 e 10⁷ e escrever
+
+- consumidor: retira número, verifica se é inteiro e escreve no terminal
+
