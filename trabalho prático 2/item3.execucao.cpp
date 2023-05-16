@@ -33,25 +33,57 @@ main(int argc, char** argv)
     unsigned int buffer_compartilhado [tamanho_buffer];
 
     // inicializar semáforos
-    sem_t semaforo_inteiros, semaforo_lacunas;
+    sem_t semaforo_inteiros, 
+            semaforo_lacunas, 
+            semaforo_acesso_buffer, 
+            semaforo_modificacao_inteiros,
+            semaforo_numeros_a_produzir,
+            semaforo_cout;
+
+    sem_init(&semaforo_inteiros, 0, 0);
+    sem_init(&semaforo_lacunas, 0, tamanho_buffer);
+    sem_init(&semaforo_acesso_buffer, 0, 1);
+    sem_init(&semaforo_modificacao_inteiros, 0, 1);
+    sem_init(&semaforo_numeros_a_produzir, 0, 1);
+    sem_init(&semaforo_cout, 0, 1);
+
+    sem_t  *semaforos [6] = {
+        &semaforo_inteiros, 
+        &semaforo_lacunas, 
+        &semaforo_acesso_buffer, 
+        &semaforo_modificacao_inteiros,
+        &semaforo_numeros_a_produzir,
+        &semaforo_cout
+    };
 
     // inicializar threads de forma alternada
     thread consumidores[numero_consumidores];
+    thread produtores[numero_produtores];
     const auto NUMERO_CONSUMIDORES_ORIGINAL = numero_consumidores;
 
-    while (numero_produtores > 0 || numero_consumidores > 0)
+    while (numero_produtores > 0 || numero_consumidores > 0){
         if (numero_produtores > 0){
             numero_produtores--;
-            thread novo_produtor(produtor, (unsigned int*) buffer_compartilhado);
+            produtores[numero_produtores] = thread (
+                produtor, 
+                &inteiros_a_processar,
+                (unsigned int*) buffer_compartilhado,
+                (sem_t**) semaforos
+            );
         }
         if (numero_consumidores > 0){
             numero_consumidores--;
-            thread novo_consumidor(consumidor, (unsigned int*) buffer_compartilhado, &inteiros_a_processar);
-            consumidores[numero_consumidores] = move(novo_consumidor);
+            consumidores[numero_consumidores] = thread (
+                consumidor, 
+                &inteiros_a_processar,
+                (unsigned int*) buffer_compartilhado, 
+                (sem_t**) semaforos
+            );
         }
+    }
 
-    for (int indice_consumidor = 0; indice_consumidor < NUMERO_CONSUMIDORES_ORIGINAL; indice_consumidor++)
+    for (unsigned long indice_consumidor = 0; indice_consumidor < NUMERO_CONSUMIDORES_ORIGINAL; indice_consumidor++)
         consumidores[indice_consumidor].join();
     
-    return EXIT_SUCCESS;
+    exit(EXIT_SUCCESS);
 }
