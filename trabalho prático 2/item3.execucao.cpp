@@ -31,27 +31,25 @@ main(int argc, char** argv)
 
     // inicializar memória compartilhada
     unsigned int buffer_compartilhado [tamanho_buffer];
+    long long ultima_posicao = -1;
 
     // inicializar semáforos
     sem_t semaforo_inteiros, 
             semaforo_lacunas, 
             semaforo_acesso_buffer, 
-            semaforo_modificacao_inteiros,
             semaforo_numeros_a_produzir,
             semaforo_cout;
 
     sem_init(&semaforo_inteiros, 0, 0);
     sem_init(&semaforo_lacunas, 0, tamanho_buffer);
     sem_init(&semaforo_acesso_buffer, 0, 1);
-    sem_init(&semaforo_modificacao_inteiros, 0, 1);
     sem_init(&semaforo_numeros_a_produzir, 0, 1);
     sem_init(&semaforo_cout, 0, 1);
 
-    sem_t  *semaforos [6] = {
+    sem_t  *semaforos [5] = {
         &semaforo_inteiros, 
         &semaforo_lacunas, 
         &semaforo_acesso_buffer, 
-        &semaforo_modificacao_inteiros,
         &semaforo_numeros_a_produzir,
         &semaforo_cout
     };
@@ -59,7 +57,8 @@ main(int argc, char** argv)
     // inicializar threads de forma alternada
     thread consumidores[numero_consumidores];
     thread produtores[numero_produtores];
-    const auto NUMERO_CONSUMIDORES_ORIGINAL = numero_consumidores;
+    const auto NUMERO_PRODUTORES_ORIGINAL = numero_produtores,
+        NUMERO_CONSUMIDORES_ORIGINAL = numero_consumidores;
 
     while (numero_produtores > 0 || numero_consumidores > 0){
         if (numero_produtores > 0){
@@ -68,7 +67,8 @@ main(int argc, char** argv)
                 produtor, 
                 &inteiros_a_processar,
                 (unsigned int*) buffer_compartilhado,
-                (sem_t**) semaforos
+                (sem_t**) semaforos,
+                &ultima_posicao
             );
         }
         if (numero_consumidores > 0){
@@ -77,13 +77,21 @@ main(int argc, char** argv)
                 consumidor, 
                 &inteiros_a_processar,
                 (unsigned int*) buffer_compartilhado, 
-                (sem_t**) semaforos
+                (sem_t**) semaforos,
+                &ultima_posicao
             );
         }
     }
 
-    for (unsigned long indice_consumidor = 0; indice_consumidor < NUMERO_CONSUMIDORES_ORIGINAL; indice_consumidor++)
-        consumidores[indice_consumidor].join();
+    for (unsigned long indice_produtor = 0; indice_produtor < NUMERO_PRODUTORES_ORIGINAL; indice_produtor++)
+        produtores[indice_produtor].join();
+
+    while (ultima_posicao >= 0);
+    for (unsigned long i = 0; i < NUMERO_CONSUMIDORES_ORIGINAL; i++)
+        sem_post(&semaforo_inteiros);
+
+    for (unsigned long i = 0; i < NUMERO_CONSUMIDORES_ORIGINAL; i++)
+        consumidores[i].join();
     
     exit(EXIT_SUCCESS);
 }
