@@ -8,10 +8,10 @@ AUX = socket_udp.o
 all: $(EXECS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $^ -pthread -c
+	$(CXX) $(CXXFLAGS) $^ -c
 
 $(EXECS): %: %.o $(AUX)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -pthread -o $@
 
 clean:
 	rm -f $(EXECS) *.o
