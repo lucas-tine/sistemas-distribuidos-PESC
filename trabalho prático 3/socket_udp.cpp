@@ -1,6 +1,8 @@
 #include "socket_udp.hpp"
 
-SocketUDP::SocketUDP(const int porta) {
+const char* SocketUDP::ip_local = "127.0.0.1"; 
+
+SocketUDP::SocketUDP(const int porta, const char *ipv4) {
     int _socket = socket(AF_INET, SOCK_DGRAM, 0);
     bool erro_socket = _socket == -1;
 
@@ -15,19 +17,16 @@ SocketUDP::SocketUDP(const int porta) {
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(porta);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    // Associa o endereço ao socket
-    erro_socket = bind(_socket, (sockaddr*)&addr, sizeof(addr)) == -1;
-
-    if (erro_socket) {
-        std::cerr << "Erro ao associar o endereço ao socket" << std::endl;
-        close(_socket);
-        this->ok = false;
-        return;
-    }
-
+    addr.sin_addr.s_addr = (ipv4 == nullptr) ? htonl(INADDR_ANY): inet_addr(ipv4);
+    this->endereco_socket = addr;
     this->descritor_socket = _socket;
+}
+
+bool SocketUDP::iniciar_servidor(){
+    // Associa o endereço ao socket
+    bool erro_socket = bind(this->descritor_socket, (sockaddr*)&(this->endereco_socket), sizeof(sockaddr_in)) == -1;
+    this->ok = !erro_socket;
+    return !erro_socket;
 }
 
 void SocketUDP::aguardar_mensagens(
@@ -116,4 +115,16 @@ std::thread& SocketUDP::aguardar_mensagens_multithreaded(
         manter_servico
     );
     return this->servidor;
+}
+
+bool SocketUDP::enviar_mensagem(std::string mensagem){
+        ssize_t sentBytes = sendto(
+            this->descritor_socket, 
+            mensagem.c_str(), 
+            mensagem.length(), 
+            0,
+            (sockaddr*) &(this->endereco_socket), 
+            sizeof(sockaddr)
+        );
+        return (sentBytes != -1);
 }

@@ -5,9 +5,10 @@ using namespace std;
 
 int main () {
     SocketUDP socket(1024);
+    socket.iniciar_servidor();
     thread& servico = socket.aguardar_mensagens_multithreaded(
         100, 
-        [](string s){return string("nada a ver");},
+        [](string request){return string("resposta");},
         false
     );
     servico.join();
