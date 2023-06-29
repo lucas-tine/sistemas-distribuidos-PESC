@@ -12,14 +12,14 @@ int main(int argc, char *argv[]) {
 
     std::string mensagem = argv[1];
     int porta = std::stoi(argv[2]);
-    SocketUDP socket(porta, "127.0.0.1");
+    SocketUDP socket(porta);
     socket.enderecar_a_si();
     socket.enviar_mensagem(mensagem);
-    socket.aguardar_mensagens(100, [](string resposta){
+    socket.aguardar_mensagem([](string resposta){
         cout << resposta << endl;
         return string("");
     },
-    false);
+    1000);
     
     return 0;
 }
