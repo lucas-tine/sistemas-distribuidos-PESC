@@ -58,4 +58,9 @@ class Coordenador{
         this->funcionando = false;
         this->servico_respostas_udp->join();
     }
+
+    void atender_requisicoes()
+    {
+        
+    }
 };

@@ -30,7 +30,25 @@ bool SocketUDP::iniciar_servidor(){
     return !erro_socket;
 }
 
-bool SocketUDP::aguardar_mensagem(
+void SocketUDP::configurar_timeout(unsigned long milissegundos)
+{
+    if (milissegundos == 0) return;
+    
+    this->tv.tv_sec = 0;
+    this->tv.tv_usec = milissegundos * 1000;
+    this->timeout_configurado = true;
+
+    FD_ZERO(&this->readfds);
+    FD_SET(this->descritor_socket, &this->readfds);
+}
+
+int SocketUDP::aguardar_mensagem_timeout()
+{
+    if (!this->timeout_configurado) return;
+    return select(this->descritor_socket + 1, &this->readfds, NULL, NULL, &this->tv);
+}
+
+bool SocketUDP::aguardar_mensagem( // REFAZER ISSO AQUI EM PARTES MENORES PARA UTILIZAR NO COORDENADOR 
     std::string (*processamento_resposta)(std::string),
     unsigned long milissegundos
     ) 
@@ -43,26 +61,18 @@ bool SocketUDP::aguardar_mensagem(
     std::thread processamento;
 
     // Configura o tempo limite
-    if (milissegundos > 0)
-    {
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = milissegundos * 1000;
 
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(this->descritor_socket, &readfds);
+    this->configurar_timeout(milissegundos);
+    int rv = this->aguardar_mensagem_timeout();
 
-        int rv = select(this->descritor_socket + 1, &readfds, NULL, NULL, &tv);
-
-        if (rv == -1) {
-            // erro na chamada select
-            return false;
-        } else if (rv == 0) {
-            // tempo limite atingido sem receber dados
-            return false;
-        }
+    if (rv == -1) {
+        // erro na chamada select
+        return false;
+    } else if (rv == 0) {
+        // tempo limite atingido sem receber dados
+        return false;
     }
+    
 
     bool servidor_loop = (milissegundos == 0);
     do 
@@ -118,22 +128,6 @@ SocketUDP::~SocketUDP() {
     close(this->descritor_socket);
 }
 
-std::thread& SocketUDP::aguardar_mensagens_multithreaded(
-        std::string (*processamento_resposta)(std::string),
-        bool manter_servico
-    ) {
-
-    this->servidor = std::thread(
-        [](SocketUDP* self, std::string (*processamento_resposta)(std::string), bool manter_servico){
-            self->aguardar_mensagem(processamento_resposta, 1000);
-        },
-        this,
-        processamento_resposta,
-        manter_servico
-    );
-    return this->servidor;
-}
-
 bool SocketUDP::enviar_mensagem(std::string mensagem){
         ssize_t sentBytes = sendto(
             this->descritor_socket, 
@@ -146,7 +140,7 @@ bool SocketUDP::enviar_mensagem(std::string mensagem){
         return (sentBytes != -1);
 }
 
-void SocketUDP::servir_enquanto(
+void SocketUDP::servir_enquanto( // REFATORAR EM PARTES MENORES PARA UTILIZAR NO COORDENADOR
     bool *condicao_dinamica, 
     unsigned long verificacao_milissegundos, 
     std::string (*processamento_resposta)(std::string) 

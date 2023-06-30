@@ -14,24 +14,24 @@
 class SocketUDP {
 private:
     bool ok = true;
-    int descritor_socket = 0;
     std::thread servidor;
     const static char* ip_local;
+
+    struct timeval tv;
+    fd_set readfds;
+    bool timeout_configurado = false;
+    
+public:
     sockaddr_in endereco_socket;
     size_t tamanho_buffer_msg;
+    int descritor_socket = 0;
 
-public:
     SocketUDP(const int porta, const char *ipv4 = nullptr, size_t tamanho_buffer_msg = 16);
     ~SocketUDP();
 
     bool aguardar_mensagem( 
         std::string (*processamento_resposta)(std::string) = [](std::string s){return s;},
         unsigned long milissegundos = 0
-    );
-
-    std::thread& aguardar_mensagens_multithreaded(
-        std::string (*processamento_resposta)(std::string) = [](std::string s){return s;},
-        bool manter_servico = true
     );
 
     bool enviar_mensagem (std::string mensagem);
@@ -43,6 +43,9 @@ public:
     bool iniciar_servidor();
 
     void servir_enquanto(bool *condicao_dinamica, unsigned long verificacao_milissegundos, std::string (*processamento_resposta)(std::string) );
+
+    void configurar_timeout(unsigned long milissegundos);
+    int aguardar_mensagem_timeout()
 };
 
 #endif
