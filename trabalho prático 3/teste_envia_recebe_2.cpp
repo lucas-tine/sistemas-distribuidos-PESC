@@ -14,12 +14,6 @@ int main(int argc, char *argv[]) {
     int porta = std::stoi(argv[2]);
     SocketUDP socket(porta);
     socket.enderecar_a_si();
-    socket.enviar_mensagem(mensagem);
-    socket.aguardar_mensagem([](string resposta){
-        cout << resposta << endl;
-        return string("");
-    },
-    1000);
     
     return 0;
 }

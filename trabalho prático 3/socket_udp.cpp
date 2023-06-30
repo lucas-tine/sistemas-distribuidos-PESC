@@ -44,85 +44,9 @@ void SocketUDP::configurar_timeout(unsigned long milissegundos)
 
 int SocketUDP::aguardar_mensagem_timeout()
 {
-    if (!this->timeout_configurado) return;
+    if (!this->timeout_configurado) return -1;
     return select(this->descritor_socket + 1, &this->readfds, NULL, NULL, &this->tv);
 }
-
-bool SocketUDP::aguardar_mensagem( // REFAZER ISSO AQUI EM PARTES MENORES PARA UTILIZAR NO COORDENADOR 
-    std::string (*processamento_resposta)(std::string),
-    unsigned long milissegundos
-    ) 
-{
-    // Espera por uma mensagem
-    char buffer[this->tamanho_buffer_msg];
-    sockaddr_in senderAddr;
-    socklen_t senderAddrLen = sizeof(senderAddr);
-    std::string mensagem;
-    std::thread processamento;
-
-    // Configura o tempo limite
-
-    this->configurar_timeout(milissegundos);
-    int rv = this->aguardar_mensagem_timeout();
-
-    if (rv == -1) {
-        // erro na chamada select
-        return false;
-    } else if (rv == 0) {
-        // tempo limite atingido sem receber dados
-        return false;
-    }
-    
-
-    bool servidor_loop = (milissegundos == 0);
-    do 
-    {
-        ssize_t receivedBytes = recvfrom(this->descritor_socket, buffer, sizeof(buffer), 0,
-                                        (sockaddr*)&senderAddr, &senderAddrLen);
-
-        bool erro = receivedBytes == -1;
-        if (erro) return false;
-        
-        mensagem = std::string(buffer, receivedBytes);
-
-        // Responde a mensagem
-        processamento = std::thread(
-            []  ( 
-                std::string (*processamento_resposta)(std::string),
-                std::string mensagem,
-                int descritor_socket, 
-                sockaddr_in senderAddr, 
-                socklen_t senderAddrLen
-                )
-            {
-                std::cout << "response thread opening ..." << std::endl; 
-                std::string resposta = processamento_resposta(mensagem);
-                char buffer [resposta.length() + 1];
-                strcpy(buffer, resposta.c_str()); 
-
-                sendto(
-                    descritor_socket,
-                    buffer, 
-                    resposta.length() + 1, 
-                    0,
-                    (sockaddr*)&senderAddr,
-                    senderAddrLen
-                );
-                std::cout << "thread success closing ..." << std::endl; 
-            },
-            processamento_resposta,
-            mensagem,
-            this->descritor_socket, 
-            senderAddr, 
-            senderAddrLen
-        );
-    }
-    while (servidor_loop);
-
-    //processamento.join();
-    return true;
-}
-
 
 SocketUDP::~SocketUDP() {
     close(this->descritor_socket);
@@ -140,89 +64,17 @@ bool SocketUDP::enviar_mensagem(std::string mensagem){
         return (sentBytes != -1);
 }
 
-void SocketUDP::servir_enquanto( // REFATORAR EM PARTES MENORES PARA UTILIZAR NO COORDENADOR
-    bool *condicao_dinamica, 
-    unsigned long verificacao_milissegundos, 
-    std::string (*processamento_resposta)(std::string) 
-)
-{
-    // Espera por uma mensagem
-    char buffer[this->tamanho_buffer_msg];
-    sockaddr_in senderAddr;
-    socklen_t senderAddrLen = sizeof(senderAddr);
-    std::string mensagem;
-
-    if (verificacao_milissegundos == 0) 
-        throw std::invalid_argument("sem tempo para verificar condicao dinamica de servico do coordenador");
-
-    std::cout << "tempo: " << verificacao_milissegundos << std::endl;;
-
-    
-
-    std::deque<std::thread*> processamentos;
-    do 
-    {
-        // Configura o tempo limite
-        struct timeval tv;
-        tv.tv_sec = verificacao_milissegundos / 1000;
-        tv.tv_usec = (verificacao_milissegundos % 1000) * 1000;
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(this->descritor_socket, &readfds);
-        int rv = select(this->descritor_socket + 1, &readfds, NULL, NULL, &tv);
-        if (rv == -1) {
-            // erro na chamada select
-            throw std::runtime_error("erro na chamada select");
-        } else if (rv == 0) {
-            // tempo limite atingido sem receber dados
-            if (*condicao_dinamica) continue;
-            else break;
-        }
+mensagem_udp SocketUDP::receber_mensagem(){
+        sockaddr_in senderAddr;
+        socklen_t senderAddrLen = sizeof(senderAddr);
+        std::string mensagem;
+        char buffer[this->tamanho_buffer_msg];
 
         ssize_t receivedBytes = recvfrom(this->descritor_socket, buffer, sizeof(buffer), 0,
-                                        (sockaddr*)&senderAddr, &senderAddrLen);
+                                            (sockaddr*)&senderAddr, &senderAddrLen);
 
         bool erro = (receivedBytes == -1);
-        if (erro) 
-            throw std::runtime_error("erro na recepcao da mensagem udp");
+        if (erro) return mensagem_udp {std::string(""), sockaddr_in(), false};
             
-        mensagem = std::string(buffer, receivedBytes);
-        // Responde a mensagem
-        processamentos.push_back(new std::thread(
-                []  ( 
-                    std::string (*processamento_resposta)(std::string),
-                    std::string mensagem,
-                    int descritor_socket, 
-                    sockaddr_in senderAddr, 
-                    socklen_t senderAddrLen
-                    )
-                {
-                    std::cout << "response thread opening ..." << std::endl; 
-                    std::string resposta = processamento_resposta(mensagem);
-                    char buffer [resposta.length() + 1];
-                    strcpy(buffer, resposta.c_str()); 
-
-                    sendto(
-                        descritor_socket,
-                        buffer, 
-                        resposta.length() + 1, 
-                        0,
-                        (sockaddr*)&senderAddr,
-                        senderAddrLen
-                    );
-                    std::cout << "thread success closing ..." << std::endl; 
-                },
-                processamento_resposta,
-                mensagem,
-                this->descritor_socket, 
-                senderAddr, 
-                senderAddrLen
-            )
-        );
-    } 
-    while (*condicao_dinamica);
-
-    std::cout << "(encerrando respostas)" << std::endl;
-    for (std::thread* processamento: processamentos)
-        processamento->join();
-}
+        return mensagem_udp {std::string(buffer, receivedBytes), senderAddr, true};
+    }
