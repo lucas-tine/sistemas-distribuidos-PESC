@@ -8,9 +8,7 @@ SocketUDP::SocketUDP(const int porta, const char *ipv4, size_t tamanho_buffer_ms
     this->tamanho_buffer_msg = tamanho_buffer_msg;
 
     if (erro_socket) {
-        std::cerr << "Erro ao criar o socket" << std::endl;
-        this->ok = false;
-        return;
+        throw std::runtime_error("Erro ao criar o socket"); 
     }
 
     // Configura o endereço do socket
@@ -26,7 +24,8 @@ SocketUDP::SocketUDP(const int porta, const char *ipv4, size_t tamanho_buffer_ms
 bool SocketUDP::iniciar_servidor(){
     // Associa o endereço ao socket
     bool erro_socket = bind(this->descritor_socket, (sockaddr*)&(this->endereco_socket), sizeof(sockaddr_in)) == -1;
-    this->ok = !erro_socket;
+    if (erro_socket)
+        throw std::runtime_error("Erro ao linkar socket"); 
     return !erro_socket;
 }
 
@@ -44,7 +43,10 @@ void SocketUDP::configurar_timeout(unsigned long milissegundos)
 
 int SocketUDP::aguardar_mensagem_timeout()
 {
-    if (!this->timeout_configurado) return -1;
+    if (!this->timeout_configurado){
+        throw std::logic_error("timeout precisa ser configurado");   
+        return -1;
+    }
     return select(this->descritor_socket + 1, &this->readfds, NULL, NULL, &this->tv);
 }
 
@@ -59,12 +61,19 @@ bool SocketUDP::enviar_mensagem(std::string mensagem){
             mensagem.length(), 
             0,
             (sockaddr*) &(this->endereco_socket), 
-            sizeof(sockaddr)
+            sizeof(this->endereco_socket)
         );
+
+        this->comunicacao_anterior = true;
         return (sentBytes != -1);
 }
 
 mensagem_udp SocketUDP::receber_mensagem(){
+        if (not this->comunicacao_anterior){
+            this->iniciar_servidor();
+            this->comunicacao_anterior = true;
+        }
+
         sockaddr_in senderAddr;
         socklen_t senderAddrLen = sizeof(senderAddr);
         std::string mensagem;

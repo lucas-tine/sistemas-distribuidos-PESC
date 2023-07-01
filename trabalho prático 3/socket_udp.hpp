@@ -19,13 +19,12 @@ struct mensagem_udp {
 
 class SocketUDP {
 private:
-    bool ok = true;
     std::thread servidor;
     const static char* ip_local;
 
     struct timeval tv;
     fd_set readfds;
-    bool timeout_configurado = false;
+    bool timeout_configurado = false, comunicacao_anterior = false;
     
 public:
     sockaddr_in endereco_socket;
