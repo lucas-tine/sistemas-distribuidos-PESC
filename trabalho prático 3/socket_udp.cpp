@@ -1,7 +1,5 @@
 #include "socket_udp.hpp"
 
-const char* SocketUDP::ip_local = "127.0.0.1"; 
-
 SocketUDP::SocketUDP(const int porta, const char *ipv4, size_t tamanho_buffer_msg) {
     int _socket = socket(AF_INET, SOCK_DGRAM, 0);
     bool erro_socket = _socket == -1;
