@@ -23,22 +23,27 @@ SocketUDP::SocketUDP(const int porta, const char *ipv4, size_t tamanho_buffer_ms
 
 bool SocketUDP::iniciar_servidor(){
     // Associa o endereço ao socket
-    bool erro_socket = bind(this->descritor_socket, (sockaddr*)&(this->endereco_socket), sizeof(sockaddr_in)) == -1;
-    if (erro_socket)
-        throw std::runtime_error("Erro ao linkar socket"); 
+    bool erro_socket;
+    if (not this->comunicacao_anterior){
+            erro_socket = bind(this->descritor_socket, (sockaddr*)&(this->endereco_socket), sizeof(sockaddr_in)) == -1;
+            if (erro_socket)
+                throw std::runtime_error("Erro ao linkar socket"); 
+            this->comunicacao_anterior = true;
+        }
+
     return !erro_socket;
 }
 
 void SocketUDP::configurar_timeout(unsigned long milissegundos)
 {
+    this->iniciar_servidor();
     if (milissegundos == 0) return;
     
     this->tv.tv_sec = 0;
     this->tv.tv_usec = milissegundos * 1000;
-    this->timeout_configurado = true;
-
     FD_ZERO(&this->readfds);
     FD_SET(this->descritor_socket, &this->readfds);
+    this->timeout_configurado = true;
 }
 
 int SocketUDP::aguardar_mensagem_timeout()
@@ -47,7 +52,10 @@ int SocketUDP::aguardar_mensagem_timeout()
         throw std::logic_error("timeout precisa ser configurado");   
         return -1;
     }
-    return select(this->descritor_socket + 1, &this->readfds, NULL, NULL, &this->tv);
+
+    fd_set readfds = this->readfds;
+    timeval tv = this->tv;
+    return select(this->descritor_socket + 1, &readfds, NULL, NULL, &tv);
 }
 
 SocketUDP::~SocketUDP() {
@@ -69,10 +77,7 @@ bool SocketUDP::enviar_mensagem(std::string mensagem){
 }
 
 mensagem_udp SocketUDP::receber_mensagem(){
-        if (not this->comunicacao_anterior){
-            this->iniciar_servidor();
-            this->comunicacao_anterior = true;
-        }
+        this->iniciar_servidor();
 
         sockaddr_in senderAddr;
         socklen_t senderAddrLen = sizeof(senderAddr);
@@ -85,5 +90,12 @@ mensagem_udp SocketUDP::receber_mensagem(){
         bool erro = (receivedBytes == -1);
         if (erro) return mensagem_udp {std::string(""), sockaddr_in(), false};
             
+        std::cout << "socket: mensagem recebida " << std::string(buffer, receivedBytes) << std::endl;
         return mensagem_udp {std::string(buffer, receivedBytes), senderAddr, true};
-    }
+}
+
+mensagem_udp SocketUDP::receber_mensagem_e_enderecar(){
+    mensagem_udp mensagem = this->receber_mensagem();
+    this->endereco_socket = mensagem.endereco;
+    return mensagem;
+}

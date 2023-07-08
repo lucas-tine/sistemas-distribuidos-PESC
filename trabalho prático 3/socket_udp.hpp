@@ -26,6 +26,8 @@ private:
     fd_set readfds;
     bool timeout_configurado = false, comunicacao_anterior = false;
     
+    bool iniciar_servidor();
+    
 public:
     sockaddr_in endereco_socket;
     size_t tamanho_buffer_msg;
@@ -35,13 +37,14 @@ public:
     ~SocketUDP();
 
     bool enviar_mensagem (std::string mensagem);
-    mensagem_udp receber_mensagem();
 
     void enderecar_a_si (){
         this->endereco_socket.sin_addr.s_addr = inet_addr(this->ip_local);
     }
 
-    bool iniciar_servidor();
+    mensagem_udp receber_mensagem();
+    mensagem_udp receber_mensagem_e_enderecar();
+
     void configurar_timeout(unsigned long milissegundos);
     int aguardar_mensagem_timeout();
 };
