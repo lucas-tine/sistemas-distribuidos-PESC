@@ -61,6 +61,7 @@ SocketUDP::~SocketUDP() {
 }
 
 bool SocketUDP::enviar_mensagem(std::string mensagem){
+        std::cout << "enviei: " << mensagem << std::endl;
         ssize_t sentBytes = sendto(
             this->descritor_socket, 
             mensagem.c_str(), 

@@ -26,16 +26,16 @@ main ()
         switch (opcao) 
         {
             case 1:
-                socket_coordenador.enviar_mensagem("request");
+                socket_coordenador.enviar_mensagem("p|1|0000000");
                 do
                 {
                     msg = socket_coordenador.receber_mensagem_e_enderecar();
                     cout << "mensagem recebida: " << msg.mensagem << endl;
                 } 
-                while (msg.mensagem != "grant");
+                while (msg.mensagem[0] != 'g');
                 break;
             case 2:
-                socket_coordenador.enviar_mensagem("release");
+                socket_coordenador.enviar_mensagem("r|1|0000000");
                 msg = socket_coordenador.receber_mensagem();
                 cout << "mensagem recebida: " << msg.mensagem  << endl;
                 break;

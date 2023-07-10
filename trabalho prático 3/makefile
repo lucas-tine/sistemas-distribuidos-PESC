@@ -1,10 +1,10 @@
 CXX = g++
 CXXFLAGS = -Wall -g
 
-TESTS = teste_enviar teste_receber teste_processo
+TESTS = teste_enviar teste_receber teste_processo teste_envia_recebe_manual
 EXECS = $(TESTS) main
 
-AUX = socket_udp.o coordenador.o
+AUX = socket_udp.o coordenador.o mensageiro_ex_mut.o
 
 all: $(AUX) $(EXECS)
 

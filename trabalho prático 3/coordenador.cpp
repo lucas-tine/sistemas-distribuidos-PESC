@@ -1,23 +1,28 @@
 #include "socket_udp.hpp"
+#include "mensageiro_ex_mut.hpp"
+#include "registro_acesso_ex_mut.hpp"
 #include <thread>
 #include <iostream>
-#include <queue>
+#include <deque>
 #include <mutex>
 
 using namespace std;
 
 const unsigned long MAX_TIME_WAIT = 3000;
 
-class Coordenador{
+class Coordenador: public mensageiro_ex_mut
+{
     private:
         SocketUDP* socket_servidor;
         thread* servico_terminal;
         thread* servico_respostas_udp;
         int porta;
         bool funcionando;
-
+        unsigned long contador_mensagens = 0;
         
-        queue<sockaddr_in> fila_acessos;
+        deque<sockaddr_in> fila_acessos;
+        deque<registro_acesso_ex_mut*> historico_acessos; // AINDA NAO UTILIZADO
+
         mutex lock_fila_acessos;
 
     public:
@@ -51,6 +56,9 @@ class Coordenador{
             cout << "selecionando " << opcao << endl;
             switch (opcao) 
             {
+                case 1:
+                    this->imprimir_fila_atual();
+                    break;
                 case 3:
                     this->funcionando = false;
                     break;
@@ -60,6 +68,20 @@ class Coordenador{
         }
 
         this->servico_respostas_udp->join();
+    }
+
+    void imprimir_fila_atual()
+    {
+        this->lock_fila_acessos.lock();
+        {
+            int lugar_na_fila = 1;
+            if (this->fila_acessos.empty())
+                cout << " [fila vazia] " << endl << endl;
+            else for (sockaddr_in addr: this->fila_acessos)
+                cout << lugar_na_fila++ << ") " << addr.sin_port << ": " << addr.sin_addr.s_addr << endl;
+            
+        } 
+        this->lock_fila_acessos.unlock();
     }
 
     void atender_requisicoes()
@@ -84,15 +106,24 @@ class Coordenador{
     void tratar_requisicao(mensagem_udp requisicao)
     {
         // enviar WAIT, entrar na fila de execuções, e ao chegar na cabeça, enviar o GRANT.
-        if (requisicao.mensagem == "request") 
+        if (requisicao.mensagem[0] == mensageiro_ex_mut::request) 
         {
             bool primeiro_da_fila = false;
             this->lock_fila_acessos.lock();
+            {
                 if (this->fila_acessos.empty()) 
                     primeiro_da_fila = true;
-                this->fila_acessos.push(requisicao.endereco);
+                else {
+                    SocketUDP socket(this->porta + 1);
+                    socket.endereco_socket = requisicao.endereco;
+                    cout << "wait enviado " << socket.enviar_mensagem (this->construir_mensagem(mensageiro_ex_mut::wait)) << endl;
+                }   
+
+                this->fila_acessos.push_back(requisicao.endereco);
+            }
             this->lock_fila_acessos.unlock();
-            if (primeiro_da_fila) this->atender_fila();
+            if (primeiro_da_fila) 
+                this->atender_fila();
         }
     }
 
@@ -104,28 +135,38 @@ class Coordenador{
             this->lock_fila_acessos.lock();
             if (this->fila_acessos.empty()) {
                 atendendo = false;
+                this->lock_fila_acessos.unlock();
             }
             else 
             {
                 int mensagens_recebidas = 0;
                 sockaddr_in proximo = this->fila_acessos.front();
-                this->fila_acessos.pop();
+                this->lock_fila_acessos.unlock();
+
                 SocketUDP socket(this->porta + 1);
                 socket.endereco_socket = proximo;
-                socket.enviar_mensagem ("grant");
-                socket.configurar_timeout(500);
+                socket.enviar_mensagem (this->construir_mensagem(mensageiro_ex_mut::grant));
+
+                socket.configurar_timeout(2000);
                 while (mensagens_recebidas == 0 and atendendo){
                     mensagens_recebidas = socket.aguardar_mensagem_timeout();
                     if (not this->funcionando) atendendo = false;
-                    cout << "nada de release ... (" << mensagens_recebidas << ")" << endl;
+                    cout << "nada de release... (" << mensagens_recebidas << ")" << endl;
                 }
                 if (mensagens_recebidas)
                 {
-                    if (socket.receber_mensagem().mensagem == "release")
-                        cout << socket.enviar_mensagem("ok") << endl;
+                    if (socket.receber_mensagem().mensagem[0] == this->release)
+                    {
+                        cout << socket.enviar_mensagem(this->construir_mensagem(mensageiro_ex_mut::ok)) << endl;
+                        this->lock_fila_acessos.lock();
+                            this->fila_acessos.pop_front();
+                        this->lock_fila_acessos.unlock();
+                    }
                 }
             }
-            this->lock_fila_acessos.unlock();
+            
         }
     }
+
+    unsigned id() {return 0;} 
 };
