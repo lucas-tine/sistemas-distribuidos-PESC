@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdarg>
 #include <stdexcept>
+#include <tuple>
 
 class mensageiro_ex_mut
 {
@@ -13,4 +14,5 @@ class mensageiro_ex_mut
 
         virtual unsigned id() = 0;
         std::string construir_mensagem(const char);
+        std::tuple<std::string, unsigned, unsigned> dividir_mensagem(std::string);
 };

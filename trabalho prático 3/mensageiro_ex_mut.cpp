@@ -28,3 +28,18 @@ mensageiro_ex_mut::construir_mensagem(const char ch)
     return mensagem;
 }
 
+std::tuple<std::string, unsigned, unsigned>
+dividir_mensagem(std::string mensagem)
+{
+    std::string pedacos [3];
+    int indice = 0;
+    for (char ch: mensagem) {
+        if (ch == '|') {
+            indice++;
+            continue;
+        }
+        else 
+            pedacos[indice] += ch;
+    }
+    return std::tuple<std::string, unsigned, unsigned> (pedacos[0], stoi(pedacos[1]), stoi(pedacos[2]));
+}
