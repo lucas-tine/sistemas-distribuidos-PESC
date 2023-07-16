@@ -42,7 +42,7 @@ private:
 public:
     sockaddr_in endereco_socket;
     
-
+    SocketUDP();
     SocketUDP(const int porta, const char *ipv4 = nullptr, size_t tamanho_buffer_msg = 16);
     ~SocketUDP();
 

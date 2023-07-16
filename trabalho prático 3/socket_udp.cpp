@@ -1,5 +1,7 @@
 #include "socket_udp.hpp"
 
+SocketUDP::SocketUDP(){};
+
 SocketUDP::SocketUDP(const int porta, const char *ipv4, size_t tamanho_buffer_msg) {
     int _socket = socket(AF_INET, SOCK_DGRAM, 0);
     bool erro_socket = _socket == -1;
@@ -61,7 +63,7 @@ SocketUDP::~SocketUDP() {
 }
 
 bool SocketUDP::enviar_mensagem(std::string mensagem){
-        std::cout << "enviei: " << mensagem << std::endl;
+        // std::cout << "enviei: " << mensagem << std::endl; // DEBUG
         ssize_t sentBytes = sendto(
             this->descritor_socket, 
             mensagem.c_str(), 
@@ -89,7 +91,7 @@ mensagem_udp SocketUDP::receber_mensagem(){
         bool erro = (receivedBytes == -1);
         if (erro) return mensagem_udp {std::string(""), sockaddr_in(), false};
             
-        std::cout << "socket: mensagem recebida " << std::string(buffer, receivedBytes) << std::endl;
+        // std::cout << "socket: mensagem recebida " << std::string(buffer, receivedBytes) << std::endl; // DEBUG
         return mensagem_udp {std::string(buffer, receivedBytes), senderAddr, true};
 }
 

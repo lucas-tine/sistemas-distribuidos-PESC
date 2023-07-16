@@ -7,6 +7,7 @@
 #include <mutex>
 #include <tuple>
 #include <map>
+#include <iomanip>
 
 using namespace std;
 
@@ -65,25 +66,39 @@ class Coordenador: public mensageiro_ex_mut
                     this->imprimir_fila_atual();
                     break;
                 case 2:
-                    map<unsigned, unsigned> grants, requests;
                     {
-                        lock_guard<mutex> (this->lock_historico_mensagens);
-                        for (registro_mensagem_ex_mut reg_msg: this->historico_mensagens)  
-                            if (reg_msg.tipo_mensagem == this->grant){
-                                if (grants.count(reg_msg.id_processo_destino) <= 0)
-                                    grants[reg_msg.id_processo_destino] = 1;
-                                else
-                                    grants[reg_msg.id_processo_destino]++;
-                            }
-                            else if (reg_msg.tipo_mensagem == this->request){
-                                if (requests.count(reg_msg.id_processo_origem) <= 0)
-                                    requests[reg_msg.id_processo_origem] = 1;
-                                else
-                                    requests[reg_msg.id_processo_origem]++;
+                        map<unsigned, unsigned> grants, requests;
+                        {
+                            lock_guard<mutex> (this->lock_historico_mensagens);
+                            for (registro_mensagem_ex_mut reg_msg: this->historico_mensagens)  
+                                if (reg_msg.tipo_mensagem == this->grant){
+                                    if (grants.count(reg_msg.id_processo_destino) <= 0)
+                                        grants[reg_msg.id_processo_destino] = 1;
+                                    else
+                                        grants[reg_msg.id_processo_destino]++;
+                                }
+                                else if (reg_msg.tipo_mensagem == this->request){
+                                    if (requests.count(reg_msg.id_processo_origem) <= 0)
+                                        requests[reg_msg.id_processo_origem] = 1;
+                                    else
+                                        requests[reg_msg.id_processo_origem]++;
+                                }
+                        }
+                        cout << "pedidos de acessos recebidos (REQUESTs):\n" 
+                            << left << setw(8) << "id" 
+                            << left << setw(14) << "contagem" << endl;
+                        for (auto& pair: requests)
+                            cout << left << setw(8) << pair.first 
+                                << left << setw(14) << pair.second << '\n';
 
-                            }
+                        cout << "autorizacoes de acessos fornecidas (GRANTs):\n" 
+                            << left << setw(8) << "id" 
+                            << left << setw(14) << "contagem" << endl;
+                        for (auto& pair: grants)
+                            cout << left << setw(8) << pair.first 
+                                << left << setw(14) << pair.second << '\n';
+                        cout << endl;
                     }
-                    // FALTA PRINTAR AQUI OS ATENDIMENTOS CONTADOS
                     break;
                 case 3:
                     this->funcionando = false;
@@ -111,6 +126,7 @@ class Coordenador: public mensageiro_ex_mut
     
     void atender_requisicoes()
     {
+        //cout << "atender_requisicoes" << endl; // DEBUG
         this->socket_servidor = new SocketUDP(this->porta);
         this->socket_servidor->configurar_timeout(500);
         int status;
@@ -126,10 +142,12 @@ class Coordenador: public mensageiro_ex_mut
             mensagem_udp mensagem = this->socket_servidor->receber_mensagem();
             thread(&Coordenador::tratar_requisicao, this, mensagem).detach();
         }
+        //cout << "atender_requisicoes FIM" << endl; // DEBUG
     }
 
     void tratar_requisicao(mensagem_udp requisicao)
     {
+        //cout << "tratar_requisicao" << endl; // DEBUG
         this->registrar_recepcao(requisicao);
         auto componentes_requisicao = this->dividir_mensagem(requisicao.mensagem);
         // enviar WAIT, entrar na fila de execuções, e ao chegar na cabeça, enviar o GRANT.
@@ -157,10 +175,12 @@ class Coordenador: public mensageiro_ex_mut
             if (primeiro_da_fila) 
                 this->atender_fila();
         }
+        //cout << "tratar_requisicoes FIM" << endl; // DEBUG
     }
 
     void atender_fila()
     {
+        //cout << "atender_fila" << endl; // DEBUG
         bool atendendo = true;
         while (atendendo)
         {
@@ -187,7 +207,7 @@ class Coordenador: public mensageiro_ex_mut
                 {
                     mensagens_recebidas = socket.aguardar_mensagem_timeout();
                     if (not this->funcionando) atendendo = false;
-                    cout << "nada de release... (" << mensagens_recebidas << ")" << endl; // DEBUG
+                    //cout << "nada de release... (" << mensagens_recebidas << ")" << endl; // DEBUG
                 }
                 if (mensagens_recebidas)
                 {
@@ -205,10 +225,12 @@ class Coordenador: public mensageiro_ex_mut
             }
             
         }
+        //cout << "atender_fila FIM" << endl; // DEBUG
     }
 
     void registrar_recepcao(mensagem_udp requisicao)
     {
+        //cout << "registrar_recepcao" << endl; // DEBUG
         lock_guard<mutex> lock(this->lock_historico_mensagens);
         auto campos_msg = this->dividir_mensagem(requisicao.mensagem);
         this->historico_mensagens.push_back
@@ -218,9 +240,10 @@ class Coordenador: public mensageiro_ex_mut
                 time(NULL),
                 get<1>(campos_msg),
                 0,
-                get<0>(campos_msg)[0]
+                get<0>(campos_msg)
             }
         );
+        //cout << "registrar recepcao FIM" << endl; // DEBUG
     }
 
     void registrar_envio(string msg, unsigned id_processo)

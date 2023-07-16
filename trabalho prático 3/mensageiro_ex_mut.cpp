@@ -1,5 +1,5 @@
 #include "mensageiro_ex_mut.hpp"
-
+#include <iostream>
 const int mensageiro_ex_mut::TAMANHO_MENSAGEM = 16;
 
 const char mensageiro_ex_mut::request = 'p'; // "P"lease
@@ -26,14 +26,15 @@ mensageiro_ex_mut::construir_mensagem(const char ch)
     mensagem += zeros;
 
     return mensagem;
-}
-
+};
+using namespace std;
 std::tuple<std::string, unsigned, unsigned>
-dividir_mensagem(std::string mensagem)
+mensageiro_ex_mut::dividir_mensagem(std::string mensagem)
 {
-    std::string pedacos [3];
+    std::string pedacos [3] = {std::string(""), std::string(""), std::string("")};
     int indice = 0;
     for (char ch: mensagem) {
+        if (indice >= 3) break;
         if (ch == '|') {
             indice++;
             continue;
@@ -42,4 +43,4 @@ dividir_mensagem(std::string mensagem)
             pedacos[indice] += ch;
     }
     return std::tuple<std::string, unsigned, unsigned> (pedacos[0], stoi(pedacos[1]), stoi(pedacos[2]));
-}
+};
