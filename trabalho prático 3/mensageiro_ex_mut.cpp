@@ -28,7 +28,7 @@ mensageiro_ex_mut::construir_mensagem(const char ch)
     return mensagem;
 };
 using namespace std;
-std::tuple<std::string, unsigned, unsigned>
+std::tuple<char, unsigned, unsigned>
 mensageiro_ex_mut::dividir_mensagem(std::string mensagem)
 {
     std::string pedacos [3] = {std::string(""), std::string(""), std::string("")};
@@ -42,5 +42,5 @@ mensageiro_ex_mut::dividir_mensagem(std::string mensagem)
         else 
             pedacos[indice] += ch;
     }
-    return std::tuple<std::string, unsigned, unsigned> (pedacos[0], stoi(pedacos[1]), stoi(pedacos[2]));
+    return std::tuple<char, unsigned, unsigned> (pedacos[0][0], stoi(pedacos[1]), stoi(pedacos[2]));
 };

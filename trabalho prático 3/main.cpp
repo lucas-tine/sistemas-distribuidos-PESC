@@ -1,6 +1,6 @@
 #include <iostream>
 #include "socket_udp.hpp"
-#include "coordenador.cpp"
+#include "coordenador.hpp"
 
 using namespace std;
 
