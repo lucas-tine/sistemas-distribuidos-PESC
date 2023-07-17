@@ -1,10 +1,20 @@
 #include "coordenador.hpp"
 
+std::map<char, std::string> tipo_mensagem_log = {
+   {'p', "[R] Request"},
+   {'g', "[S] Grant"},
+   {'r', "[R] Release"},
+   {'o', "[S] Ok Signal" }, 
+   {'w', "[S] Wait"},
+};
+std::string gerar_date_string(bool s = false, std::time_t tempo = 0);
+
 Coordenador::Coordenador(int porta) {
-    this->funcionando = true;
+    this->ativo = true;
     this->porta = porta;
     this->servico_terminal = new std::thread(&Coordenador::atender_terminal, this);
     this->servico_respostas_udp = new std::thread(&Coordenador::atender_requisicoes, this);
+    this->nome_arquivo_log = "log-" + gerar_date_string(1) + ".txt";
 }
 
 void Coordenador::aguardar() {
@@ -13,7 +23,7 @@ void Coordenador::aguardar() {
 
 void Coordenador::atender_terminal() {
     int opcao = -1;
-    while (this->funcionando){
+    while (this->ativo){
         std::cout << "Opcoes: " << std::endl <<
             "(1) ver fila de pedidos atual" << std::endl <<
             "(2) ver atendimentos feitos a cada processo" << std::endl << 
@@ -62,7 +72,13 @@ void Coordenador::atender_terminal() {
                 }
                 break;
             case 3:
-                this->funcionando = false;
+                this->ativo = false;
+                {
+                    std::lock_guard<std::mutex> lock(this->lock_log);
+                    std::ofstream log (this->nome_arquivo_log, std::ios::app);
+                    log << "Fechando log em " << gerar_date_string(time(0), 1);
+                    log.close(); 
+                }
                 break;
             default: 
                 std::cout << std::endl << "opcao invalida!" << std::endl << std::endl; 
@@ -90,7 +106,7 @@ void Coordenador::atender_requisicoes() {
     int status;
     bool requisicao;
 
-    while (this->funcionando){
+    while (this->ativo){
         status = this->socket_servidor->aguardar_mensagem_timeout();
         requisicao = (status > 0);
         if (!requisicao) {
@@ -157,7 +173,7 @@ void Coordenador::atender_fila() {
             while (mensagens_recebidas == 0 and atendendo)
             {
                 mensagens_recebidas = socket.aguardar_mensagem_timeout();
-                if (!this->funcionando) atendendo = false;
+                if (!this->ativo) atendendo = false;
             }
             if (mensagens_recebidas)
             {
@@ -178,31 +194,82 @@ void Coordenador::atender_fila() {
 }
 
 void Coordenador::registrar_recepcao(mensagem_udp requisicao) {
-    std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
     auto campos_msg = this->dividir_mensagem(requisicao.mensagem);
-    this->historico_mensagens.push_back(
-        registro_mensagem_ex_mut
+    auto registro_msg = registro_mensagem_ex_mut{
+        time(nullptr),
+        std::get<1>(campos_msg),
+        0,
+        std::get<0>(campos_msg)
+    };
+    {
+        std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
+        this->historico_mensagens.push_back(registro_msg);
+    }
+    auto escrita_log = new std::thread (
+        [this, registro_msg]
+        ()
         {
-            time(nullptr),
-            std::get<1>(campos_msg),
-            0,
-            std::get<0>(campos_msg)
+            std::lock_guard<std::mutex> lock(this->lock_log);
+            auto log = std::ofstream(this->nome_arquivo_log, std::ios::app);
+            log << std::left << std::setw(13) << tipo_mensagem_log[registro_msg.tipo_mensagem] << " - " 
+                << std::setw(5) << registro_msg.id_processo_origem << " - " 
+                << "recebido - " 
+                << gerar_date_string(1, registro_msg.momento_mensagem) 
+                << std::endl;
+            log.close();
         }
     );
+    escrita_log->detach();
 }
 
 void Coordenador::registrar_envio(std::string msg, unsigned id_processo) {
-    std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
-    this->historico_mensagens.push_back(
-        registro_mensagem_ex_mut {
-            time(nullptr),
-            0,
-            id_processo, 
-            msg[0]
+    auto registro_msg = registro_mensagem_ex_mut {
+        time(nullptr),
+        0,
+        id_processo, 
+        msg[0]
+    };
+    {
+        std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
+        this->historico_mensagens.push_back(registro_msg); 
+    }
+    auto escrita_log = new std::thread (
+        [this, registro_msg]
+        ()
+        {
+            std::lock_guard<std::mutex> lock(this->lock_log);
+            auto log = std::ofstream(this->nome_arquivo_log, std::ios::app);
+            log << std::left << std::setw(13) << tipo_mensagem_log[registro_msg.tipo_mensagem] << " - " 
+                << std::setw(5) << registro_msg.id_processo_destino << " - " 
+                << " enviado - " << gerar_date_string( 1, registro_msg.momento_mensagem) 
+                << std::endl;
+            log.close();
         }
-    ); 
+    );
+    escrita_log->detach();
 }
 
 unsigned Coordenador::id() {
     return 0;
 }
+
+std::string gerar_date_string( bool s, std::time_t tempo) {
+    std::time_t tempo_atual = (tempo == 0) ? std::time(nullptr) : tempo;
+    std::tm* data_hora = std::localtime(&tempo_atual);
+    
+    int dia = data_hora->tm_mday;
+    int mes = data_hora->tm_mon + 1; // tm_mon começa em 0 para janeiro
+    int ano = data_hora->tm_year + 1900; // tm_year é o número de anos desde 1900
+    int hora = data_hora->tm_hour;
+    int minuto = data_hora->tm_min;
+
+    std::ostringstream date_str;
+    date_str << std::setfill('0') << std::setw(2) << dia << "_"
+                 << std::setfill('0') << std::setw(2) << mes << "_"
+                 << std::setfill('0') << std::setw(4) << ano << " "
+                 << std::setfill('0') << std::setw(2) << hora << "h"
+                 << std::setfill('0') << std::setw(2) << minuto;
+    if (s)
+        date_str << "m" << data_hora->tm_sec;
+    return date_str.str();
+};

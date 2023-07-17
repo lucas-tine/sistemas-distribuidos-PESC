@@ -36,11 +36,11 @@ main (int argc, char** argv)
 
     int id = stoi(argv[1]);
     int opcao = -1;
-    bool funcionando = true;
+    bool ativo = true;
     processo _processo(id); 
     SocketUDP socket;
 
-    while (funcionando){
+    while (ativo){
         mensagem_udp msg;
         cout << "Opcoes: " << endl <<
         "(1) enviar request" << endl <<
@@ -63,13 +63,13 @@ main (int argc, char** argv)
                 while (msg.mensagem[0] != processo::grant);
                 break;
             case 2:
-                socket.enviar_mensagem("r|1|0000000");
+                socket.enviar_mensagem(_processo.construir_mensagem(_processo.release));
                 msg = socket.receber_mensagem();
                 cout << "mensagem recebida: " << msg.mensagem  << endl;
                 socket = socket_coordenador_main_thread(); // thread de atendimento fechou, o socket deve tratar novamente com main thread do coordenador
                 break;
             case 3: 
-                funcionando = false;
+                ativo = false;
                 break;
             default: 
                 std::cout << endl << "opcao invalida!" << endl << endl; 

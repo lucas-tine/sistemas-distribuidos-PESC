@@ -11,6 +11,7 @@
 #include <tuple>
 #include <map>
 #include <iomanip>
+#include <fstream>
 
 struct endereco_processo {
     unsigned id_processo;
@@ -26,14 +27,16 @@ private:
     std::thread* servico_terminal;
     std::thread* servico_respostas_udp;
     int porta;
-    bool funcionando;
-    unsigned long contador_mensagens = 0;
+    bool ativo;
     
     std::deque<endereco_processo> fila_acessos;
-    std::deque<registro_mensagem_ex_mut> historico_mensagens;
-
     std::mutex lock_fila_acessos;
+
+    std::deque<registro_mensagem_ex_mut> historico_mensagens;
     std::mutex lock_historico_mensagens;
+
+    std::string nome_arquivo_log;
+    std::mutex lock_log;
 
 public:
     // Construtor
