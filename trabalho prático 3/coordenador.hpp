@@ -10,15 +10,23 @@
 #include <mutex>
 #include <tuple>
 #include <map>
-#include <iomanip>
+#include <iomanip> 
 #include <fstream>
+
+const unsigned long PERIODO_VERIFICACAO_ATIVIDADE = 600; // intervalo (ms) entre o qual as threads verificam se o coordenador foi encerrado, quando bloqueadas
+const bool PERMITIR_LOG_MULTITHREADED = 0; // melhora desempenho, mas não garante corretude na ordenacao do log
+const unsigned PORTA_PADRAO = 1024;
 
 struct endereco_processo {
     unsigned id_processo;
     sockaddr_in endereco;
 };
 
-const unsigned long MAX_TIME_WAIT = 3000;
+typedef enum {
+    inatividade,
+    fila,
+    regiao_critica
+} condicao_processo;
 
 class Coordenador: public mensageiro_ex_mut
 {
@@ -37,6 +45,9 @@ private:
 
     std::string nome_arquivo_log;
     std::mutex lock_log;
+
+    std::map<unsigned, condicao_processo> map_condicao_processo;
+    std::mutex lock_map_condicao_processo;
 
 public:
     // Construtor

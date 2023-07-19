@@ -69,6 +69,21 @@ void Coordenador::atender_terminal() {
                         std::cout << std::left << std::setw(8) << pair.first 
                             << std::left << std::setw(14) << pair.second << '\n';
                     std::cout << std::endl;
+
+                    std::cout << "estado de cada processo conhecido: \n"
+                        << std::left << std::setw(8) << "id" 
+                        << std::left << std::setw(24) << "condicao no sistema" << std::endl;
+                    {
+                        std::lock_guard<std::mutex> lock(this->lock_map_condicao_processo);
+                        for (auto& pair: this->map_condicao_processo)
+                            std::cout << std::left << std::setw(8) << pair.first 
+                                << std::left << std::setw(24) << (
+                                    (pair.second == condicao_processo::fila) ? "em fila" :  
+                                    (pair.second == condicao_processo::inatividade) ? "inativo":
+                                    "acessando regiao critica" 
+                                )
+                                << '\n';
+                    }
                 }
                 break;
             case 3:
@@ -102,7 +117,7 @@ void Coordenador::imprimir_fila_atual() {
 
 void Coordenador::atender_requisicoes() {
     this->socket_servidor = new SocketUDP(this->porta);
-    this->socket_servidor->configurar_timeout(500);
+    this->socket_servidor->configurar_timeout(PERIODO_VERIFICACAO_ATIVIDADE);
     int status;
     bool requisicao;
 
@@ -119,8 +134,25 @@ void Coordenador::atender_requisicoes() {
 }
 
 void Coordenador::tratar_requisicao(mensagem_udp requisicao) {
-    this->registrar_recepcao(requisicao);
     auto componentes_requisicao = this->dividir_mensagem(requisicao.mensagem);
+    SocketUDP socket(this->porta + 1);
+    socket.endereco_socket = requisicao.endereco;
+
+    // verificar se mensagem eh valida, caso contrario "relembre" estado ao processo e retorne
+    {
+        std::lock_guard<std::mutex> lock(this->lock_map_condicao_processo);
+        condicao_processo condicao = this->map_condicao_processo[std::get<1>(componentes_requisicao)];
+        if (condicao != condicao_processo::inatividade){
+            socket.enviar_mensagem(
+                (condicao == condicao_processo::regiao_critica) 
+                    ? this->construir_mensagem(this->grant) 
+                    : this->construir_mensagem(this->wait)
+            );
+            return;
+        }
+    }
+
+    this->registrar_recepcao(requisicao);
     if (requisicao.mensagem[0] == mensageiro_ex_mut::request) 
     {
         bool primeiro_da_fila = false;
@@ -128,8 +160,6 @@ void Coordenador::tratar_requisicao(mensagem_udp requisicao) {
         if (this->fila_acessos.empty()) 
             primeiro_da_fila = true;
         else {
-            SocketUDP socket(this->porta + 1);
-            socket.endereco_socket = requisicao.endereco;
             std::string wait = this->construir_mensagem(mensageiro_ex_mut::wait);
             socket.enviar_mensagem (wait);
             registrar_envio(wait, std::get<1>(componentes_requisicao));
@@ -167,7 +197,7 @@ void Coordenador::atender_fila() {
             socket.enviar_mensagem (grant);
             this->registrar_envio(grant, proximo.id_processo);
 
-            socket.configurar_timeout(2000);
+            socket.configurar_timeout(PERIODO_VERIFICACAO_ATIVIDADE);
 
             int mensagens_recebidas = 0;
             while (mensagens_recebidas == 0 and atendendo)
@@ -201,10 +231,12 @@ void Coordenador::registrar_recepcao(mensagem_udp requisicao) {
         0,
         std::get<0>(campos_msg)
     };
+
     {
         std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
         this->historico_mensagens.push_back(registro_msg);
     }
+
     auto escrita_log = new std::thread (
         [this, registro_msg]
         ()
@@ -219,7 +251,10 @@ void Coordenador::registrar_recepcao(mensagem_udp requisicao) {
             log.close();
         }
     );
-    escrita_log->detach();
+    if (PERMITIR_LOG_MULTITHREADED)
+        escrita_log->detach();
+    else
+        escrita_log->join();
 }
 
 void Coordenador::registrar_envio(std::string msg, unsigned id_processo) {
@@ -229,10 +264,20 @@ void Coordenador::registrar_envio(std::string msg, unsigned id_processo) {
         id_processo, 
         msg[0]
     };
+
     {
         std::lock_guard<std::mutex> lock(this->lock_historico_mensagens);
         this->historico_mensagens.push_back(registro_msg); 
     }
+
+    {
+        std::lock_guard<std::mutex> lock(this->lock_map_condicao_processo);
+        this->map_condicao_processo[id_processo] = 
+            (msg[0] == this->wait) ? condicao_processo::fila :
+            (msg[0] == this->grant) ? condicao_processo::regiao_critica:
+            condicao_processo::inatividade;
+    }
+
     auto escrita_log = new std::thread (
         [this, registro_msg]
         ()
@@ -246,7 +291,10 @@ void Coordenador::registrar_envio(std::string msg, unsigned id_processo) {
             log.close();
         }
     );
-    escrita_log->detach();
+    if (PERMITIR_LOG_MULTITHREADED)
+        escrita_log->detach();
+    else
+        escrita_log->join();
 }
 
 unsigned Coordenador::id() {

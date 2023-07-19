@@ -5,6 +5,6 @@
 using namespace std;
 
 int main () {
-    Coordenador coord(1024);
+    Coordenador coord(PORTA_PADRAO);
     coord.aguardar();
 }

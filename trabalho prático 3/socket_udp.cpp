@@ -36,7 +36,6 @@ bool SocketUDP::iniciar_servidor(){
 
 void SocketUDP::configurar_timeout(unsigned long milissegundos)
 {
-    this->iniciar_servidor();
     if (milissegundos == 0) return;
     
     this->tv.tv_sec = 0;
@@ -53,6 +52,7 @@ int SocketUDP::aguardar_mensagem_timeout()
         return -1;
     }
 
+    this->iniciar_servidor();
     fd_set readfds = this->readfds;
     timeval tv = this->tv;
     return select(this->descritor_socket + 1, &readfds, NULL, NULL, &tv);

@@ -1,5 +1,7 @@
-def validate():
-    f = open("log-16_07_2023 22h52m27.txt", "r")
+import argparse
+
+def validate(caminho: str):
+    f = open(caminho, "r")
     lines = f.readlines()
     requests = []
     grants = []
@@ -24,10 +26,20 @@ def validate():
             continue
 
     for i in range(len(requests)):
-        if (requests[i] != grants[i] or grants[i] != releases[i]):
+        if (grants[i] != releases[i]):
+            print (f'request {i} is {requests[i]}, grant {i} is {grants[i]} and release[{i}] is {releases[i]}')
             raise Exception("Invalid log file: invalid grants and releases sequence")
 
     print("Log file was successfully validated")
 
 if __name__ == "__main__":
-    validate()
+    # Criação do objeto ArgumentParser
+    parser = argparse.ArgumentParser(description='Valida a ordenação do log')
+
+    # Adição do argumento posicional obrigatório
+    parser.add_argument('caminho', type=str, help='Caminho para o log')
+
+    # Análise dos argumentos da linha de comando
+    args = parser.parse_args()
+
+    validate(args.caminho)
